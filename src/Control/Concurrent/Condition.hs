@@ -45,11 +45,11 @@ create lock = Condition lock
 create' :: IO Condition
 create' = newMVar () >>= create
 
--- | Acquire an underlying lock.
+-- | Acquires an underlying lock.
 acquire :: Condition -> IO ()
 acquire = takeMVar . lock
 
--- | Release an underlying lock.
+-- | Releases an underlying lock.
 release :: Condition -> IO ()
 release cond = putMVar (lock cond) ()
 
@@ -59,7 +59,7 @@ release cond = putMVar (lock cond) ()
 -- 'Control.Concurrent.MVar.takeMVar' on the 'MVar' provided to 'create'
 -- function or by calling 'acquire' on condition.
 
--- | Wait until notified.
+-- | Waits until notified.
 wait :: Condition -> IO ()
 wait (Condition lock waiters) = do
   checkLock lock "Control.Concurrent.Condition.wait"
@@ -73,7 +73,7 @@ wait (Condition lock waiters) = do
 
   return ()
 
--- | Wake up one of the threads waiting on the condition.
+-- | Wakes up one of the threads waiting on the condition.
 -- Does not release an associated lock.
 notify :: Condition -> IO ()
 notify (Condition lock waiters) = do
@@ -84,7 +84,7 @@ notify (Condition lock waiters) = do
     waiterLock <- readChan waiters
     putMVar waiterLock ()
 
--- | Wake up all of the thread waiting on the condition.
+-- | Wakes up all of the thread waiting on the condition.
 -- Does not release an associated lock.
 -- NB: At the time this function is unfair and may cause starvation.
 notifyAll :: Condition -> IO ()
