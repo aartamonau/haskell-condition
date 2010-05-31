@@ -1,5 +1,26 @@
--- | Condition variables for Haskell built on top of MVars.
+------------------------------------------------------------------------------
+-- |
+-- Module      : Control.Concurrent.Condition
+-- Copyright   : (C) 2010 Aliaksiej Artamonaŭ
+-- License     : LGPL
+--
+-- Maintainer  : aliaksiej.artamonau@gmail.com
+-- Stability   : unstable
+-- Portability : portable
+--
+-- Condition variables for Haskell built on top of 'Control.Concurrent.MVar'
+-- and 'Control.Concurrent.Chan'.
+--
+-- This library is designed to be imported qualified. Recommended import
+-- statements are the following:
+--
+-- > import Control.Concurrent.Condition (Condition)
+-- > import qualified Control.Concurrent.Condition as Condition
+--
+------------------------------------------------------------------------------
 
+
+------------------------------------------------------------------------------
 module Control.Concurrent.Condition
        (
          -- * @Condition@ type.
@@ -22,6 +43,8 @@ module Control.Concurrent.Condition
        , notifyAll
        ) where
 
+
+------------------------------------------------------------------------------
 import Control.Applicative ((<$>))
 
 import Control.Concurrent.Chan (Chan, newChan, writeChan, readChan, isEmptyChan)
@@ -36,6 +59,8 @@ import Data.Maybe (isNothing, fromJust)
 
 import System.Timeout (timeout)
 
+
+------------------------------------------------------------------------------
 -- | Possible states for 'Waiter'.
 data WaiterState
   = Waiting                     -- ^ A waiter is waiting for notification
@@ -45,6 +70,8 @@ data WaiterState
   | Aborted                     -- ^ A waiter has aborted its waiting due to
                                 -- timeout.
 
+
+------------------------------------------------------------------------------
 -- | Represents a single thread waiting on a condition.
 data Waiter =
   Waiter { waiterState    :: MVar WaiterState
@@ -52,36 +79,51 @@ data Waiter =
          , waiterNotifier :: MVar (Maybe (MVar ()))
          }
 
+
+------------------------------------------------------------------------------
 -- | Condition data type.
 data Condition =
   Condition { lock    :: MVar ()
             , waiters :: Chan Waiter }
 
+
+------------------------------------------------------------------------------
 -- | Creates a condition from a lock.
 create :: MVar ()               -- ^ An 'MVar' to associate with condition.
        -> IO Condition
 create lock = Condition lock
                     <$> newChan
 
+
+------------------------------------------------------------------------------
 -- | Creates a condition with hidden associated 'MVar' which can be accessed
 -- using only 'acquire' and 'release' operations.
 create' :: IO Condition
 create' = newMVar () >>= create
 
+
+------------------------------------------------------------------------------
 -- | Acquires an underlying lock.
 acquire :: Condition -> IO ()
 acquire = takeMVar . lock
 
+
+------------------------------------------------------------------------------
 -- | Releases an underlying lock.
 release :: Condition -> IO ()
 release cond = putMVar (lock cond) ()
 
+
+------------------------------------------------------------------------------
 -- $lockStateInfo
 -- All the following operations /must/ be called only when the lock associated
 -- with condition is acquired. This can be done either by calling
 -- 'Control.Concurrent.MVar.takeMVar' on the 'MVar' provided to 'create'
 -- function or by calling 'acquire' on condition.
+------------------------------------------------------------------------------
 
+
+------------------------------------------------------------------------------
 -- | Waits until notified.
 -- Note that 'System.Timeout.timeout' can't be used safely with this function.
 -- 'waitFor' /should/ be used instead.
@@ -113,6 +155,8 @@ wait (Condition lock waiters) = do
 
   return ()
 
+
+------------------------------------------------------------------------------
 -- | Waits until notified or timeout run out.
 waitFor :: Condition            -- ^ A condition to wait on.
         -> Int                  -- ^ Timeout in microseconds.
@@ -167,6 +211,8 @@ waitFor (Condition lock waiters) time = do
 
   return notified
 
+
+------------------------------------------------------------------------------
 -- | Helper notification function. Takes one waiter from the pool
 -- and notifies it using barrier that provided.
 notify' :: Condition            -- ^ A condition to notify on.
@@ -212,6 +258,7 @@ notify' (Condition lock waiters) barrier =
           Aborted        -> loop
 
 
+------------------------------------------------------------------------------
 -- | Wakes up one of the threads waiting on the condition.
 -- Does not release an associated lock.
 notify :: Condition -> IO ()
@@ -221,6 +268,8 @@ notify condition = do
   notify' condition Nothing
   return ()
 
+
+------------------------------------------------------------------------------
 -- | Wakes up all of the thread waiting on the condition.
 -- Does not release an associated lock.
 -- NB: At the time this function is unfair and may cause starvation.
@@ -238,6 +287,8 @@ notifyAll condition = do
   -- to allow to run one of them
   putMVar barrier ()
 
+
+------------------------------------------------------------------------------
 -- | Performs a check to ensure that a lock is acquired. If not then error
 -- is issued. Used to check correctness of 'wait', 'notify' and 'notifyAll'
 -- calls.
