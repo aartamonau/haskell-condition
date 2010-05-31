@@ -137,60 +137,76 @@ waitFor (Condition lock waiters) time = do
 
         return notified
 
-      Just () -> return True      -- notification recieved; doing nothing
+      Just () -> return True      -- notification received; doing nothing
 
   _ <- takeMVar lock
 
   return notified
 
--- | Wakes up one of the threads waiting on the condition.
--- Does not release an associated lock.
-notify :: Condition -> IO ()
-notify (Condition lock waiters) = do
-  checkLock lock "Control.Concurrent.Condition.notify"
-
+-- | Helper notification function. Takes one waiter from the pool
+-- and notifies it using barrier that provided.
+notify' :: Condition            -- ^ A condition to notify on.
+        -- -> Maybe (MVar ())      -- ^ A barrier.
+        -> IO Bool              -- ^ 'True' some thread was notified.
+                                -- 'False' no threads to notify left.
+notify' (Condition lock waiters) =
   fix $ \loop -> do
     waiter <- readChan waiters
 
     empty <- isEmptyChan waiters
-    unless empty $ do
-      state <- readMVar $ waiterState waiter
+    if empty
+      then return False
+      else do
+        state <- readMVar $ waiterState waiter
 
-      case state of
-        Waiting        ->
-          putMVar (waiterNotifier waiter) () -- no additional actions needed
-        WaitingTimeout -> do
-          let lock = waiterLock waiter
+        case state of
+          Waiting        -> do
+            putMVar (waiterNotifier waiter) () -- no additional actions needed
+            return True
+          WaitingTimeout -> do
+            let lock = waiterLock waiter
 
-          _ <- takeMVar lock    -- accessing waiter's state atomically
+            -- accessing waiter's state atomically
+            -- NB: this lock can be released in two different places
+            _ <- takeMVar lock
 
-          -- the state may have changed by this time
-          state <- readMVar $ waiterState waiter
-          case state of
-            Aborted        ->
-              loop     -- Can't do anything with this so 'wait' returns
-                       -- as if time ran out.
-            WaitingTimeout ->
-              putMVar (waiterNotifier waiter) () -- notifying thread as usual
+            -- the state may have changed by this time
+            state <- readMVar $ waiterState waiter
+            case state of
+              Aborted        -> do
+                putMVar lock ()
+                loop     -- Can't do anything with this so 'wait' returns
+                         -- as if time ran out.
+              WaitingTimeout -> do
+                -- notifying thread as usual
+                putMVar (waiterNotifier waiter) ()
+                putMVar lock ()
 
-          putMVar lock ()
+                return True
 
-        Aborted        -> loop
+          Aborted        -> loop
+
+
+-- | Wakes up one of the threads waiting on the condition.
+-- Does not release an associated lock.
+notify :: Condition -> IO ()
+notify condition = do
+  checkLock (lock condition) "Control.Concurrent.Condition.notify"
+
+  notify' condition
+  return ()
 
 -- | Wakes up all of the thread waiting on the condition.
 -- Does not release an associated lock.
 -- NB: At the time this function is unfair and may cause starvation.
 notifyAll :: Condition -> IO ()
-notifyAll (Condition lock waiters) = do
-  checkLock lock "Control.Concurrent.Condition.notifyAll"
+notifyAll condition = do
+  checkLock (lock condition) "Control.Concurrent.Condition.notifyAll"
 
   fix $ \loop -> do
-    empty <- isEmptyChan waiters
-    unless empty $ do
-      waiter <- readChan waiters
-      putMVar (waiterLock waiter) ()
+    end <- notify' condition
 
-      loop
+    unless end loop
 
 -- | Performs a check to ensure that a lock is acquired. If not then error
 -- is issued. Used to check correctness of 'wait', 'notify' and 'notifyAll'
