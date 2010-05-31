@@ -139,7 +139,6 @@ wait (Condition lock waiters) = do
 
   putMVar lock ()
 
-  _ <- takeMVar waiterNotifier
   barrier <- takeMVar waiterNotifier -- receiving notification
 
   -- if barrier has been returned we must wait on it
@@ -221,12 +220,11 @@ notify' :: Condition            -- ^ A condition to notify on.
                                 -- 'False' no threads to notify left.
 notify' (Condition lock waiters) barrier =
   fix $ \loop -> do
-    waiter <- readChan waiters
-
     empty <- isEmptyChan waiters
     if empty
       then return False
       else do
+        waiter <- readChan waiters
         state <- readMVar $ waiterState waiter
 
         case state of
