@@ -32,6 +32,7 @@ import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar,
 import Control.Monad (unless)
 
 import Data.Function (fix)
+import Data.Maybe (isNothing, fromJust)
 
 import System.Timeout (timeout)
 
@@ -48,7 +49,7 @@ data WaiterState
 data Waiter =
   Waiter { waiterState    :: MVar WaiterState
          , waiterLock     :: MVar ()
-         , waiterNotifier :: MVar ()
+         , waiterNotifier :: MVar (Maybe (MVar ()))
          }
 
 -- | Condition data type.
@@ -95,8 +96,20 @@ wait (Condition lock waiters) = do
   writeChan waiters (Waiter waiterState waiterLock waiterNotifier)
 
   putMVar lock ()
+
   _ <- takeMVar waiterNotifier
+  barrier <- takeMVar waiterNotifier -- receiving notification
+
+  -- if barrier has been returned we must wait on it
+  unless (isNothing barrier) $ do
+    takeMVar $ fromJust barrier
+
   _ <- takeMVar lock
+
+  -- after acquiring a lock we can give other threads a possibility
+  -- to pass a barrier
+  unless (isNothing barrier) $ do
+    putMVar (fromJust barrier) ()
 
   return ()
 
@@ -117,7 +130,7 @@ waitFor (Condition lock waiters) time = do
   putMVar lock ()
   result <- timeout time (takeMVar waiterNotifier)
 
-  notified <-
+  (notified, barrier) <-
     case result of
       Nothing -> do               -- time ran out
         takeMVar waiterLock       -- accessing state atomically
@@ -133,23 +146,34 @@ waitFor (Condition lock waiters) time = do
         unless notified $
           modifyMVar_ waiterState (const $ return Aborted)
 
+        barrier <- if notified then takeMVar waiterNotifier else return Nothing
+
         putMVar waiterLock ()
 
-        return notified
+        return (notified, barrier)
 
-      Just () -> return True      -- notification received; doing nothing
+      Just barrier ->
+        return (True, barrier)      -- notification received; doing nothing
+
+
+  unless (isNothing barrier) $ do
+    takeMVar $ fromJust barrier
 
   _ <- takeMVar lock
+
+
+  unless (isNothing barrier) $ do
+    putMVar (fromJust barrier) ()
 
   return notified
 
 -- | Helper notification function. Takes one waiter from the pool
 -- and notifies it using barrier that provided.
 notify' :: Condition            -- ^ A condition to notify on.
-        -- -> Maybe (MVar ())      -- ^ A barrier.
+        -> Maybe (MVar ())      -- ^ A barrier.
         -> IO Bool              -- ^ 'True' some thread was notified.
                                 -- 'False' no threads to notify left.
-notify' (Condition lock waiters) =
+notify' (Condition lock waiters) barrier =
   fix $ \loop -> do
     waiter <- readChan waiters
 
@@ -161,7 +185,8 @@ notify' (Condition lock waiters) =
 
         case state of
           Waiting        -> do
-            putMVar (waiterNotifier waiter) () -- no additional actions needed
+            -- no additional actions needed
+            putMVar (waiterNotifier waiter) barrier
             return True
           WaitingTimeout -> do
             let lock = waiterLock waiter
@@ -179,7 +204,7 @@ notify' (Condition lock waiters) =
                          -- as if time ran out.
               WaitingTimeout -> do
                 -- notifying thread as usual
-                putMVar (waiterNotifier waiter) ()
+                putMVar (waiterNotifier waiter) barrier
                 putMVar lock ()
 
                 return True
@@ -193,7 +218,7 @@ notify :: Condition -> IO ()
 notify condition = do
   checkLock (lock condition) "Control.Concurrent.Condition.notify"
 
-  notify' condition
+  notify' condition Nothing
   return ()
 
 -- | Wakes up all of the thread waiting on the condition.
@@ -203,10 +228,15 @@ notifyAll :: Condition -> IO ()
 notifyAll condition = do
   checkLock (lock condition) "Control.Concurrent.Condition.notifyAll"
 
+  barrier <- newEmptyMVar
   fix $ \loop -> do
-    end <- notify' condition
+    end <- notify' condition (Just barrier)
 
     unless end loop
+
+  -- by this time all the threads are notified; releasing the barrier
+  -- to allow to run one of them
+  putMVar barrier ()
 
 -- | Performs a check to ensure that a lock is acquired. If not then error
 -- is issued. Used to check correctness of 'wait', 'notify' and 'notifyAll'
