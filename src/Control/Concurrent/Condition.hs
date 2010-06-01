@@ -147,14 +147,14 @@ wait (Condition lock waiters) = do
   barrier <- takeMVar waiterNotifier -- receiving notification
 
   -- if barrier has been returned we must wait on it
-  unless (isNothing barrier) $ do
+  unless (isNothing barrier) $
     takeMVar $ fromJust barrier
 
   _ <- takeMVar lock
 
   -- after acquiring a lock we can give other threads a possibility
   -- to pass a barrier
-  unless (isNothing barrier) $ do
+  unless (isNothing barrier) $
     putMVar (fromJust barrier) ()
 
   return ()
@@ -204,13 +204,13 @@ waitFor (Condition lock waiters) time = do
         return (True, barrier)      -- notification received; doing nothing
 
 
-  unless (isNothing barrier) $ do
+  unless (isNothing barrier) $
     takeMVar $ fromJust barrier
 
   _ <- takeMVar lock
 
 
-  unless (isNothing barrier) $ do
+  unless (isNothing barrier) $
     putMVar (fromJust barrier) ()
 
   return notified
@@ -309,6 +309,5 @@ checkLock lock info = do
 with :: Condition               -- ^ A condtion to lock on.
      -> IO a                    -- ^ Action to execute.
      -> IO a
-with cond action = bracket_ (acquire cond)
-                            (release cond)
-                             action
+with cond = bracket_ (acquire cond)
+                     (release cond)
