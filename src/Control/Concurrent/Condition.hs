@@ -41,6 +41,9 @@ module Control.Concurrent.Condition
        , waitFor
        , notify
        , notifyAll
+
+         -- * Utility functions.
+       , with
        ) where
 
 
@@ -51,6 +54,8 @@ import Control.Concurrent.Chan (Chan, newChan, writeChan, readChan, isEmptyChan)
 import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar,
                                       takeMVar, putMVar, readMVar, modifyMVar_,
                                       isEmptyMVar)
+
+import Control.Exception (bracket_)
 
 import Control.Monad (unless)
 
@@ -296,3 +301,14 @@ checkLock :: MVar a             -- ^ A lock to check.
 checkLock lock info = do
   empty <- isEmptyMVar lock
   unless empty $ error (info ++ " : lock is not acquired.")
+
+
+------------------------------------------------------------------------------
+-- | Acquires a condition, executes an action, releases condition.
+-- Exception safe.
+with :: Condition               -- ^ A condtion to lock on.
+     -> IO a                    -- ^ Action to execute.
+     -> IO a
+with cond action = bracket_ (acquire cond)
+                            (release cond)
+                             action
