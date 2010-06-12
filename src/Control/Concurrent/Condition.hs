@@ -48,21 +48,23 @@ module Control.Concurrent.Condition
 
 
 ------------------------------------------------------------------------------
-import Control.Applicative ((<$>))
+import Control.Applicative ( (<$>) )
 
-import Control.Concurrent.Chan (Chan, newChan, writeChan, readChan, isEmptyChan)
-import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar,
-                                      takeMVar, putMVar, readMVar, modifyMVar_,
-                                      isEmptyMVar)
+import Control.Concurrent.Chan ( Chan,
+                                 newChan, writeChan, readChan, isEmptyChan )
+import Control.Concurrent.MVar ( MVar,
+                                 newMVar, newEmptyMVar,
+                                 takeMVar, putMVar, readMVar, modifyMVar_,
+                                 isEmptyMVar )
 
-import Control.Exception (bracket_)
+import Control.Exception ( bracket_ )
 
-import Control.Monad (when, unless)
+import Control.Monad ( when, unless )
 
-import Data.Function (fix)
-import Data.Maybe (isNothing, fromJust)
+import Data.Function ( fix )
+import Data.Maybe ( isNothing, fromJust )
 
-import System.Timeout (timeout)
+import System.Timeout ( timeout )
 
 
 ------------------------------------------------------------------------------

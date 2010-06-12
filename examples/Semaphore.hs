@@ -28,14 +28,14 @@ module Semaphore
 
 
 ------------------------------------------------------------------------------
-import Control.Applicative ((<$>), (<*>))
-import Control.Monad (when)
+import Control.Applicative ( (<$>), (<*>) )
+import Control.Monad ( when )
 
-import Data.IORef (IORef, newIORef, readIORef, modifyIORef)
+import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 
 
 ------------------------------------------------------------------------------
-import Control.Concurrent.Condition (Condition, with)
+import Control.Concurrent.Condition ( Condition, with )
 import qualified Control.Concurrent.Condition as Condition
 
 

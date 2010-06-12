@@ -17,20 +17,25 @@
 
 
 ------------------------------------------------------------------------------
-import Control.Applicative ((<$>), (<*>))
-import Control.Monad (unless)
-
-import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar (MVar, newMVar, withMVar)
-
-import Data.Function (fix)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-
-import System.Random (randomRIO)
+module Main ( main )
+       where
 
 
 ------------------------------------------------------------------------------
-import Control.Concurrent.Condition (Condition)
+import Control.Applicative ( (<$>), (<*>) )
+import Control.Monad ( unless )
+
+import Control.Concurrent ( forkIO, threadDelay )
+import Control.Concurrent.MVar ( MVar, newMVar, withMVar )
+
+import Data.Function ( fix )
+import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
+
+import System.Random ( randomRIO )
+
+
+------------------------------------------------------------------------------
+import Control.Concurrent.Condition ( Condition )
 import qualified Control.Concurrent.Condition as Condition
 
 
