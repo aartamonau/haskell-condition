@@ -55,7 +55,7 @@ import Control.Concurrent.Chan ( Chan,
 import Control.Concurrent.MVar ( MVar,
                                  newMVar, newEmptyMVar,
                                  takeMVar, putMVar, readMVar, modifyMVar_,
-                                 isEmptyMVar )
+                                 isEmptyMVar, tryPutMVar )
 
 import Control.Exception ( bracket_ )
 
@@ -118,7 +118,10 @@ acquire = takeMVar . lock
 ------------------------------------------------------------------------------
 -- | Releases an underlying lock.
 release :: Condition -> IO ()
-release cond = putMVar (lock cond) ()
+release cond = do
+  successful <- tryPutMVar (lock cond) ()
+  unless successful $
+    error "Control.Concurrent.Condition.release : not acquired."
 
 
 ------------------------------------------------------------------------------
