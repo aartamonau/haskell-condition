@@ -48,12 +48,13 @@ import TestUtils ( assertThrows, assertBlocking', assertNonBlocking' )
 
 ------------------------------------------------------------------------------
 tests :: [Test]
-tests = [ testCase "acquire/release"   test_acquire
-        , testCase "with/release"      test_with
-        , testCase "unacquired wait"   test_unacquiredWait
-        , testCase "unacquired notify" test_unacquiredNotify
-        , testCase "notify"            test_notify
-        , testCase "timeout"           test_timeout
+tests = [ testCase "acquire/release"    test_acquire
+        , testCase "with/release"       test_with
+        , testCase "unacquired wait"    test_unacquiredWait
+        , testCase "unacquired notify"  test_unacquiredNotify
+        , testCase "unacquired release" test_unacquiredRelease
+        , testCase "notify"             test_notify
+        , testCase "timeout"            test_timeout
         ]
 
 
@@ -106,6 +107,15 @@ test_unacquiredNotify = do
     Condition.notify cond
   assertThrows "'notifyAll' keeps silence on unacquired condition" $
     Condition.notifyAll cond
+
+
+------------------------------------------------------------------------------
+test_unacquiredRelease :: Assertion
+test_unacquiredRelease = do
+  cond <- Condition.create'
+
+  assertThrows "'release' keeps silence on unacquired condition" $
+    Condition.release cond
 
 
 ------------------------------------------------------------------------------
