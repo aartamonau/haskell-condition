@@ -57,7 +57,7 @@ import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar,
 
 import Control.Exception (bracket_)
 
-import Control.Monad (unless)
+import Control.Monad (when, unless)
 
 import Data.Function (fix)
 import Data.Maybe (isNothing, fromJust)
@@ -282,9 +282,9 @@ notifyAll condition = do
 
   barrier <- newEmptyMVar
   fix $ \loop -> do
-    end <- notify' condition (Just barrier)
+    notified <- notify' condition (Just barrier)
 
-    unless end loop
+    when notified loop
 
   -- by this time all the threads are notified; releasing the barrier
   -- to allow to run one of them
