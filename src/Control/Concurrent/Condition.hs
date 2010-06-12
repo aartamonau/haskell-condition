@@ -228,7 +228,7 @@ notify' :: Condition            -- ^ A condition to notify on.
         -> Maybe (MVar ())      -- ^ A barrier.
         -> IO Bool              -- ^ 'True' some thread was notified.
                                 -- 'False' no threads to notify left.
-notify' (Condition lock waiters) barrier =
+notify' (Condition _ waiters) barrier =
   fix $ \loop -> do
     empty <- isEmptyChan waiters
     if empty
