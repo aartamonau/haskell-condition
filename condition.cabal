@@ -8,8 +8,8 @@ description:
 license:       LGPL
 license-file:  LICENSE
 author:        Aliaksiej Artamonaŭ
-maintainer:    aliaksiej.artamonau@gmail.com
-build-type:    Simple
+maintainer:    Aliaksiej Artamonaŭ <aliaksiej.artamonau@gmail.com>
+build-type:    Custom
 cabal-version: >= 1.6
 homepage:      http://github.com/shaleny/haskell-condition
 category:      Concurrency
@@ -17,7 +17,15 @@ category:      Concurrency
 extra-source-files:
   LICENSE
 
-Library
+
+------------------------------------------------------------------------------
+flag test
+  description: Build test program.
+  default:     False
+
+
+------------------------------------------------------------------------------
+library
   hs-source-dirs: src
 
   exposed-modules:
@@ -28,10 +36,30 @@ Library
 
   if impl(ghc >= 6.12.0)
     ghc-options: -Wall -fwarn-tabs -O2
-                 -fno-warn-unused-do-bind
+                 -fno-warn-unused-do-bind -fno-warn-name-shadowing
   else
-    ghc-options: -Wall -fwarn-tabs -O2
+    ghc-options: -Wall -fwarn-tabs -O2 -fno-warn-name-shadowing
 
-source-repository head
-  type:     git
-  location: git://github.com/shaleny/haskell-condition.git
+
+------------------------------------------------------------------------------
+executable test
+  hs-source-dirs: src, tests
+  main-is:        test.hs
+
+  other-modules: Control.Concurrent.Condition.Test
+               , TestUtils
+
+  if impl(ghc >= 6.12.0)
+    ghc-options: -Wall -fwarn-tabs -O2
+                 -fno-warn-unused-do-bind -fno-warn-name-shadowing
+  else
+    ghc-options: -Wall -fwarn-tabs -O2 -fno-warn-name-shadowing
+
+  if flag(test)
+    build-depends: time
+                 , HUnit                >= 1.2.2 && < 1.3
+                 , test-framework       >= 0.2.4 && < 0.4
+                 , test-framework-hunit >= 0.2.4 && < 0.3
+    buildable: True
+  else
+    buildable: False
