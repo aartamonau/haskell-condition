@@ -6,7 +6,7 @@
 --
 -- Maintainer  : aliaksiej.artamonau@gmail.com
 -- Stability   : unstable
--- Portability : portable
+-- Portability : unportable
 --
 -- Condition variables for Haskell built on top of 'Control.Concurrent.MVar'
 -- and 'Control.Concurrent.Chan'.
@@ -18,6 +18,10 @@
 -- > import qualified Control.Concurrent.Condition as Condition
 --
 ------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------
+{-# LANGUAGE RecordWildCards #-}
 
 
 ------------------------------------------------------------------------------
@@ -138,7 +142,7 @@ release cond = do
 -- Note that 'System.Timeout.timeout' can't be used safely with this function.
 -- 'waitFor' /should/ be used instead.
 wait :: Condition -> IO ()
-wait (Condition lock waiters) = do
+wait (Condition { .. }) = do
   checkLock lock "Control.Concurrent.Condition.wait"
 
   waiterState    <- newMVar Waiting
@@ -171,7 +175,7 @@ waitFor :: Condition            -- ^ A condition to wait on.
         -> Int                  -- ^ Timeout in microseconds.
         -> IO Bool              -- ^ 'True' if notification has occured.
                                 -- 'False' if timeout has passed.
-waitFor (Condition lock waiters) time = do
+waitFor (Condition { .. }) time = do
   checkLock lock "Control.Concurrent.Condition.waitFor"
 
   waiterState    <- newMVar WaitingTimeout
@@ -228,14 +232,14 @@ notify' :: Condition            -- ^ A condition to notify on.
         -> Maybe (MVar ())      -- ^ A barrier.
         -> IO Bool              -- ^ 'True' some thread was notified.
                                 -- 'False' no threads to notify left.
-notify' (Condition _ waiters) barrier =
+notify' (Condition { .. }) barrier =
   fix $ \loop -> do
     empty <- isEmptyChan waiters
     if empty
       then return False
       else do
         waiter <- readChan waiters
-        state <- readMVar $ waiterState waiter
+        state  <- readMVar $ waiterState waiter
 
         case state of
           Waiting        -> do
