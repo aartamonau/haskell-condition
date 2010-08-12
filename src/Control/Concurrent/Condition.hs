@@ -266,6 +266,7 @@ notify' (Condition { .. }) barrier =
                 putMVar lock ()
 
                 return True
+              _              -> error "notify': impossible happened"
 
           Aborted        -> loop
 
