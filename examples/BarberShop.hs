@@ -35,6 +35,10 @@ import System.Random ( randomRIO )
 
 
 ------------------------------------------------------------------------------
+import Control.Concurrent.Lock ( Lock )
+import qualified Control.Concurrent.Lock as Lock
+
+
 import Control.Concurrent.Condition ( Condition )
 import qualified Control.Concurrent.Condition as Condition
 
@@ -42,7 +46,7 @@ import qualified Control.Concurrent.Condition as Condition
 ------------------------------------------------------------------------------
 -- | Barber shop description.
 data BarberShop =
-  BarberShop { lock                :: MVar ()    -- ^ A lock associated with all
+  BarberShop { lock                :: Lock       -- ^ A lock associated with all
                                                  -- conditions.
 
              , barberAvailable     :: IORef Bool -- ^ Is barber currently free?
@@ -69,7 +73,7 @@ type Say = String -> IO ()
 -- | Creates and initializes a barber shop.
 initBS :: IO BarberShop
 initBS = do
-  lock <- newMVar ()
+  lock <- Lock.new
 
   BarberShop lock
          <$> newIORef True
@@ -88,7 +92,7 @@ initBS = do
 -- | A process of getting a haircut from a custmer's point of view.
 getHaircut :: Say -> BarberShop -> IO ()
 getHaircut say (BarberShop { .. }) =
-  withMVar lock $ const $ do
+  Lock.with lock $ do
     say "checking whether barber is available"
     available <- readIORef barberAvailable
     unless available $ do
@@ -115,7 +119,7 @@ getHaircut say (BarberShop { .. }) =
 -- | A process finding a next customer from barber's point of view.
 getNextCustomer :: Say -> BarberShop -> IO ()
 getNextCustomer say (BarberShop { .. }) =
-  withMVar lock $ const $ do
+  Lock.with lock $ do
     writeIORef barberAvailable True
     Condition.notify barberAvailableCond
 
@@ -130,7 +134,7 @@ getNextCustomer say (BarberShop { .. }) =
 -- | A barber's protocol of behavior after some customer has been served.
 finishHaircut :: Say -> BarberShop -> IO ()
 finishHaircut say (BarberShop { .. }) =
-  withMVar lock $ const $ do
+  Lock.with lock $ do
     say "opening the door"
     writeIORef doorOpen True
     Condition.notify doorOpenCond

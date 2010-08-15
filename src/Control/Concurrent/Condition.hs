@@ -53,22 +53,22 @@ module Control.Concurrent.Condition
 
 ------------------------------------------------------------------------------
 import Control.Applicative ( (<$>) )
-
 import Control.Concurrent.Chan ( Chan,
                                  newChan, writeChan, readChan, isEmptyChan )
 import Control.Concurrent.MVar ( MVar,
-                                 newMVar, newEmptyMVar,
-                                 takeMVar, putMVar, readMVar, modifyMVar_,
-                                 isEmptyMVar, tryPutMVar )
-
+                                 newMVar, readMVar, modifyMVar_ )
 import Control.Exception ( bracket_ )
-
 import Control.Monad ( when, unless )
 
 import Data.Function ( fix )
-import Data.Maybe ( isNothing, fromJust )
+import Data.Maybe ( isNothing, isJust, fromJust, fromMaybe )
 
-import System.Timeout ( timeout )
+
+import Control.Concurrent.Broadcast ( Broadcast )
+import qualified Control.Concurrent.Broadcast as Broadcast
+
+import Control.Concurrent.Lock ( Lock )
+import qualified Control.Concurrent.Lock as Lock
 
 
 ------------------------------------------------------------------------------
@@ -86,21 +86,21 @@ data WaiterState
 -- | Represents a single thread waiting on a condition.
 data Waiter =
   Waiter { waiterState    :: MVar WaiterState
-         , waiterLock     :: MVar ()
-         , waiterNotifier :: MVar (Maybe (MVar ()))
+         , waiterLock     :: Lock
+         , waiterNotifier :: Broadcast (Maybe Lock)
          }
 
 
 ------------------------------------------------------------------------------
 -- | Condition data type.
 data Condition =
-  Condition { lock    :: MVar ()
+  Condition { lock    :: Lock
             , waiters :: Chan Waiter }
 
 
 ------------------------------------------------------------------------------
 -- | Creates a condition from a lock.
-create :: MVar ()               -- ^ An 'MVar' to associate with condition.
+create :: Lock               -- ^ An 'MVar' to associate with condition.
        -> IO Condition
 create lock = Condition lock
                     <$> newChan
@@ -110,22 +110,22 @@ create lock = Condition lock
 -- | Creates a condition with hidden associated 'MVar' which can be accessed
 -- using only 'acquire' and 'release' operations.
 create' :: IO Condition
-create' = newMVar () >>= create
+create' = create =<< Lock.new
 
 
 ------------------------------------------------------------------------------
 -- | Acquires an underlying lock.
 acquire :: Condition -> IO ()
-acquire = takeMVar . lock
+acquire = Lock.acquire . lock
 
 
 ------------------------------------------------------------------------------
 -- | Releases an underlying lock.
 release :: Condition -> IO ()
-release cond = do
-  successful <- tryPutMVar (lock cond) ()
-  unless successful $
-    error "Control.Concurrent.Condition.release : not acquired."
+release (Condition lock _) = do
+  checkLock lock "Control.Concurrent.Condition.release"
+
+  Lock.release lock
 
 
 ------------------------------------------------------------------------------
@@ -146,25 +146,25 @@ wait (Condition { .. }) = do
   checkLock lock "Control.Concurrent.Condition.wait"
 
   waiterState    <- newMVar Waiting
-  waiterLock     <- newMVar ()
-  waiterNotifier <- newEmptyMVar
+  waiterLock     <- Lock.new
+  waiterNotifier <- Broadcast.new
 
   writeChan waiters (Waiter waiterState waiterLock waiterNotifier)
 
-  putMVar lock ()
+  Lock.release lock
 
-  barrier <- takeMVar waiterNotifier -- receiving notification
+  barrier <- Broadcast.listen waiterNotifier
 
   -- if barrier has been returned we must wait on it
   unless (isNothing barrier) $
-    takeMVar $ fromJust barrier
+    Lock.acquire $ fromJust barrier
 
-  _ <- takeMVar lock
+  Lock.acquire lock
 
   -- after acquiring a lock we can give other threads a possibility
   -- to pass a barrier
   unless (isNothing barrier) $
-    putMVar (fromJust barrier) ()
+    Lock.release $ fromJust barrier
 
   return ()
 
@@ -179,33 +179,35 @@ waitFor (Condition { .. }) time = do
   checkLock lock "Control.Concurrent.Condition.waitFor"
 
   waiterState    <- newMVar WaitingTimeout
-  waiterLock     <- newMVar ()
-  waiterNotifier <- newEmptyMVar
+  waiterLock     <- Lock.new
+  waiterNotifier <- Broadcast.new
 
   writeChan waiters (Waiter waiterState waiterLock waiterNotifier)
 
-  putMVar lock ()
-  result <- timeout time (takeMVar waiterNotifier)
+  Lock.release lock
+
+  -- TODO: Int <-> Integer
+  result <- Broadcast.listenTimeout waiterNotifier (toInteger time)
 
   (notified, barrier) <-
     case result of
       Nothing -> do               -- time ran out
-        takeMVar waiterLock       -- accessing state atomically
+        Lock.acquire waiterLock   -- accessing state atomically
 
         -- By this time notification may have been already received
         -- so this case must be checked explicitely. This can be done
         -- by checking the state of 'waiterNotifier' again.
-        notified <- not <$> isEmptyMVar waiterNotifier
+        maybeBarrier <- Broadcast.tryListen waiterNotifier
+        let notified = isJust maybeBarrier
 
-        -- if there are still no notifications changing the state to indicated
-        -- that abort has been performed
-
+        -- if there are still no notifications then wer change the state to
+        -- indicate that abort has been performed
         unless notified $
           modifyMVar_ waiterState (const $ return Aborted)
 
-        barrier <- if notified then takeMVar waiterNotifier else return Nothing
+        let barrier = fromMaybe Nothing maybeBarrier
 
-        putMVar waiterLock ()
+        Lock.release waiterLock
 
         return (notified, barrier)
 
@@ -214,13 +216,13 @@ waitFor (Condition { .. }) time = do
 
 
   unless (isNothing barrier) $
-    takeMVar $ fromJust barrier
+    Lock.acquire $ fromJust barrier
 
-  _ <- takeMVar lock
+  Lock.acquire lock
 
 
   unless (isNothing barrier) $
-    putMVar (fromJust barrier) ()
+    Lock.release $ fromJust barrier
 
   return notified
 
@@ -229,7 +231,7 @@ waitFor (Condition { .. }) time = do
 -- | Helper notification function. Takes one waiter from the pool
 -- and notifies it using barrier that provided.
 notify' :: Condition            -- ^ A condition to notify on.
-        -> Maybe (MVar ())      -- ^ A barrier.
+        -> Maybe Lock           -- ^ A barrier.
         -> IO Bool              -- ^ 'True' some thread was notified.
                                 -- 'False' no threads to notify left.
 notify' (Condition { .. }) barrier =
@@ -244,26 +246,26 @@ notify' (Condition { .. }) barrier =
         case state of
           Waiting        -> do
             -- no additional actions needed
-            putMVar (waiterNotifier waiter) barrier
+            Broadcast.signal (waiterNotifier waiter) barrier
             return True
           WaitingTimeout -> do
             let lock = waiterLock waiter
 
             -- accessing waiter's state atomically
             -- NB: this lock can be released in two different places
-            _ <- takeMVar lock
+            Lock.acquire lock
 
             -- the state may have changed by this time
             state <- readMVar $ waiterState waiter
             case state of
               Aborted        -> do
-                putMVar lock ()
+                Lock.release lock
                 loop     -- Can't do anything with this so 'wait' returns
                          -- as if time ran out.
               WaitingTimeout -> do
                 -- notifying thread as usual
-                putMVar (waiterNotifier waiter) barrier
-                putMVar lock ()
+                Broadcast.signal (waiterNotifier waiter) barrier
+                Lock.release lock
 
                 return True
               _              -> error "notify': impossible happened"
@@ -290,7 +292,7 @@ notifyAll :: Condition -> IO ()
 notifyAll condition = do
   checkLock (lock condition) "Control.Concurrent.Condition.notifyAll"
 
-  barrier <- newEmptyMVar
+  barrier <- Lock.newAcquired
   fix $ \loop -> do
     notified <- notify' condition (Just barrier)
 
@@ -298,19 +300,20 @@ notifyAll condition = do
 
   -- by this time all the threads are notified; releasing the barrier
   -- to allow to run one of them
-  putMVar barrier ()
+  Lock.release barrier
 
 
 ------------------------------------------------------------------------------
 -- | Performs a check to ensure that a lock is acquired. If not then error
 -- is issued. Used to check correctness of 'wait', 'notify' and 'notifyAll'
 -- calls.
-checkLock :: MVar a             -- ^ A lock to check.
+checkLock :: Lock               -- ^ A lock to check.
           -> String             -- ^ Information added to the error message.
           -> IO ()
 checkLock lock info = do
-  empty <- isEmptyMVar lock
-  unless empty $ error (info ++ " : lock is not acquired.")
+  locked <- Lock.locked lock
+
+  unless locked $ error (info ++ " : lock is not acquired.")
 
 
 ------------------------------------------------------------------------------
