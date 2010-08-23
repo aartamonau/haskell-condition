@@ -6,7 +6,7 @@
 --
 -- Maintainer  : aliaksiej.artamonau@gmail.com
 -- Stability   : unstable
--- Portability : portable
+-- Portability : unportable
 --
 -- Unit tests for 'Control.Concurrent.Condiion' module. Mainly copied from
 -- python's tests of threading.Condition.

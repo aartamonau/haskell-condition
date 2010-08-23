@@ -6,7 +6,7 @@
 --
 -- Maintainer  : aliaksiej.artamonau@gmail.com
 -- Stability   : unstable
--- Portability : portable
+-- Portability : unportable
 --
 -- Semaphore implementation using 'Control.Concurrent.Condition'.
 ------------------------------------------------------------------------------

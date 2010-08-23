@@ -6,7 +6,7 @@
 --
 -- Maintainer  : aliaksiej.artamonau@gmail.com
 -- Stability   : unstable
--- Portability : portable
+-- Portability : unportable
 --
 -- Sleeping barber shop problem using 'Control.Concurrent.Condition'.
 ------------------------------------------------------------------------------
