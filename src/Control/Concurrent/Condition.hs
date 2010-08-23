@@ -8,8 +8,7 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- Condition variables for Haskell built on top of 'Control.Concurrent.MVar'
--- and 'Control.Concurrent.Chan'.
+-- Condition variables for Haskell.
 --
 -- This library is designed to be imported qualified. Recommended import
 -- statements are the following:
@@ -132,8 +131,8 @@ release (Condition lock _) = do
 -- $lockStateInfo
 -- All the following operations /must/ be called only when the lock associated
 -- with condition is acquired. This can be done either by calling
--- 'Control.Concurrent.MVar.takeMVar' on the 'MVar' provided to 'create'
--- function or by calling 'acquire' on condition.
+-- 'Control.Concurrent.Lock.acquire' on the 'Lock' provided to 'new'
+-- function or by calling 'acquire' on the condition itself.
 ------------------------------------------------------------------------------
 
 

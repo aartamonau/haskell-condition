@@ -3,7 +3,7 @@ version:  0.0.0
 synopsis: Condition variables for Haskell
 
 description:
-  Condition variables for haskell implemented on top of MVars.
+  Condition variables for Haskell.
 
 license:       LGPL
 license-file:  LICENSE
