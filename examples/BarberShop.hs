@@ -77,15 +77,15 @@ initBS = do
 
   BarberShop lock
          <$> newIORef True
-         <*> Condition.create lock
+         <*> Condition.new lock
 
          <*> newIORef False
-         <*> Condition.create lock
+         <*> Condition.new lock
 
          <*> newIORef False
-         <*> Condition.create lock
+         <*> Condition.new lock
 
-         <*> Condition.create lock
+         <*> Condition.new lock
 
 
 ------------------------------------------------------------------------------

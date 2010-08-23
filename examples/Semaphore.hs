@@ -19,7 +19,7 @@ module Semaphore
          Semaphore
 
          -- * Creation.
-       , create
+       , new
 
          -- * Operations.
        , post
@@ -49,9 +49,9 @@ data Semaphore =
 
 ------------------------------------------------------------------------------
 -- | Creates a semaphore with initial value of zero.
-create :: IO Semaphore
-create = Semaphore <$> newIORef 0
-                   <*> Condition.create'
+new :: IO Semaphore
+new = Semaphore <$> newIORef 0
+                <*> Condition.new_
 
 
 ------------------------------------------------------------------------------

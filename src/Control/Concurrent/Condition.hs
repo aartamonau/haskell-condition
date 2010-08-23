@@ -30,8 +30,8 @@ module Control.Concurrent.Condition
          Condition
 
          -- * Creation.
-       , create
-       , create'
+       , new
+       , new_
 
          -- * Locking operations.
        , acquire
@@ -98,18 +98,18 @@ data Condition =
 
 
 ------------------------------------------------------------------------------
--- | Creates a condition from a lock.
-create :: Lock               -- ^ An 'MVar' to associate with condition.
-       -> IO Condition
-create lock = Condition lock
-                    <$> newChan
+-- | Creates a condition associated with the provided lock.
+new :: Lock               -- ^ An 'MVar' to associate with condition.
+    -> IO Condition
+new lock = Condition lock
+                 <$> newChan
 
 
 ------------------------------------------------------------------------------
 -- | Creates a condition with hidden associated 'MVar' which can be accessed
 -- using only 'acquire' and 'release' operations.
-create' :: IO Condition
-create' = create =<< Lock.new
+new_ :: IO Condition
+new_ = new =<< Lock.new
 
 
 ------------------------------------------------------------------------------

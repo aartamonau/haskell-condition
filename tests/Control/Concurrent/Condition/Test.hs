@@ -61,7 +61,7 @@ tests = [ testCase "acquire/release"    test_acquire
 ------------------------------------------------------------------------------
 test_acquire :: Assertion
 test_acquire = do
-  cond <- Condition.create'
+  cond <- Condition.new_
 
   assertNonBlocking' "'acquire' blocks on unacquired condition" $
     Condition.acquire cond
@@ -77,7 +77,7 @@ test_acquire = do
 ------------------------------------------------------------------------------
 test_with :: Assertion
 test_with = do
-  cond <- Condition.create'
+  cond <- Condition.new_
 
   with cond $
     assertBlocking' "'acquire' within 'with' does not block" $
@@ -90,7 +90,7 @@ test_with = do
 ------------------------------------------------------------------------------
 test_unacquiredWait :: Assertion
 test_unacquiredWait = do
-  cond <- Condition.create'
+  cond <- Condition.new_
 
   assertThrows "'wait' keeps silence on unacquired condition" $
     Condition.wait cond
@@ -101,7 +101,7 @@ test_unacquiredWait = do
 ------------------------------------------------------------------------------
 test_unacquiredNotify :: Assertion
 test_unacquiredNotify = do
-  cond <- Condition.create'
+  cond <- Condition.new_
 
   assertThrows "'notify' keeps silence on unacquired condition" $
     Condition.notify cond
@@ -112,7 +112,7 @@ test_unacquiredNotify = do
 ------------------------------------------------------------------------------
 test_unacquiredRelease :: Assertion
 test_unacquiredRelease = do
-  cond <- Condition.create'
+  cond <- Condition.new_
 
   assertThrows "'release' keeps silence on unacquired condition" $
     Condition.release cond
@@ -198,7 +198,7 @@ checkNotify cond = do
 ------------------------------------------------------------------------------
 test_notify :: Assertion
 test_notify = do
-  cond <- Condition.create'
+  cond <- Condition.new_
 
   checkNotify cond
   checkNotify cond
@@ -207,7 +207,7 @@ test_notify = do
 ------------------------------------------------------------------------------
 test_timeout :: Assertion
 test_timeout = do
-  cond    <- Condition.create'
+  cond    <- Condition.new_
   results <- newMVar []
 
   let f flag = do
