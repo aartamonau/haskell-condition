@@ -202,17 +202,16 @@ philosopher say forks = do
 ------------------------------------------------------------------------------
 main :: IO ()
 main = do
-  forks <- mapM mkFork [0 .. philosophersCount]
+  forks <- prepareForks `fmap` (mapM mkFork [0 .. philosophersCount])
 
   sayLock <- Lock.new
   says    <- mapM (mkSay sayLock) [0 .. philosophersCount]
 
-  let forks' = zip forks (tail forks ++ [head forks])
-  let phs    = philosopher <$> says <*> forks'
+  let phs    = philosopher <$> says <*> forks
 
   sequence_ phs
 
-  sleep 60
+  sleep 120
 
   where mkSay :: Lock -> Int -> IO Say
         mkSay lock num = do
@@ -227,3 +226,8 @@ main = do
                                        ++ show num ++ " : " ++ msg
 
           return say
+
+        prepareForks :: [Fork] -> [(Fork, Fork)]
+        prepareForks fs = flip $ zip fs (shift fs)
+          where shift (x : xs) = xs ++ [x]
+                flip  (x : xs) = (snd x, fst x) : xs
