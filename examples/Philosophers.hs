@@ -96,7 +96,7 @@ maxThinkingTime = 20
 
 
 ------------------------------------------------------------------------------
--- | Maximum time in seconds philosopher can spend on eating. 
+-- | Maximum time in seconds philosopher can spend on eating.
 maxEatingTime :: Int
 maxEatingTime = 10
 
@@ -171,7 +171,7 @@ eat say (left, right) = do
 
   say $ "Acquiring right fork (" ++ show left ++ ")."
   acquire right
-  say $ "Right fork acquired."  
+  say $ "Right fork acquired."
 
   say "Can begin eating now."
   sleep time
@@ -183,8 +183,8 @@ eat say (left, right) = do
 
   say $ "Releasing right fork (" ++ show left ++ ")."
   release right
-  say $ "Right fork released."  
-  
+  say $ "Right fork released."
+
 
 
 ------------------------------------------------------------------------------
@@ -199,11 +199,13 @@ philosopher say forks = do
   return ()
 
 
-------------------------------------------------------------------------------  
+------------------------------------------------------------------------------
 main :: IO ()
 main = do
   forks <- mapM mkFork [0 .. philosophersCount]
-  says  <- mapM mkSay  [0 .. philosophersCount]
+
+  sayLock <- Lock.new
+  says    <- mapM (mkSay sayLock) [0 .. philosophersCount]
 
   let forks' = zip forks (tail forks ++ [head forks])
   let phs    = philosopher <$> says <*> forks'
@@ -212,9 +214,8 @@ main = do
 
   sleep 60
 
-  where mkSay :: Int -> IO Say
-        mkSay num = do
-          lock  <- Lock.new
+  where mkSay :: Lock -> Int -> IO Say
+        mkSay lock num = do
           start <- getCurrentTime
 
           let say msg =
