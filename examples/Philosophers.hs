@@ -202,12 +202,12 @@ philosopher say forks = do
 ------------------------------------------------------------------------------
 main :: IO ()
 main = do
-  forks <- prepareForks `fmap` (mapM mkFork [0 .. philosophersCount])
+  forks <- prepareForks `fmap` (mapM mkFork [0 .. philosophersCount - 1])
 
   sayLock <- Lock.new
-  says    <- mapM (mkSay sayLock) [0 .. philosophersCount]
+  says    <- mapM (mkSay sayLock) [0 .. philosophersCount - 1]
 
-  let phs    = philosopher <$> says <*> forks
+  let phs = map (uncurry philosopher) $ zip says forks
 
   sequence_ phs
 
